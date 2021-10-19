@@ -3,54 +3,56 @@ package SAXParser.Handlers
 import org.apache.poi.ss.usermodel.DateUtil
 import org.xml.sax.helpers.DefaultHandler
 import org.xml.sax.{Attributes, SAXException}
-
 import models.Deal
 import SAXParser.log
 
+import java.io.{File, PrintWriter}
+import scala.collection.mutable
+
 object SberDealsXLSLParserHandler {
 
-  class Handler extends DefaultHandler {
+  class Handler( list: => mutable.ListBuffer[Deal] ) extends DefaultHandler {
 
-    var list: List[Deal] = List.empty
-    //    var tagContentBuffer = new StringBuffer
+    var tagContentBuffer = new StringBuffer
+
     var captureOpt: Option[String] = None
     var notTheFirstRow = false
     var deal: Deal = Deal()
 
     @throws[SAXException]
     override def startDocument(): Unit = {
-      //      tagContentBuffer = new StringBuffer
-      list = List.empty
+      list.clear()
       captureOpt = None
       notTheFirstRow = false
-      //      println(s"startDocument")
+      tagContentBuffer = new StringBuffer
     }
 
     @throws[SAXException]
     override def endDocument(): Unit = {
-      //      println(s"endDocument")
-      //        list.foreach(fout.println)
     }
 
     override def startElement(namespaceURI: String, key: String, qName: String, atts: Attributes) {
+      /** в аттрибуте "r" элемента указывается ексель индекс,
+       * для "row" это порядковый номер от 1..
+       * для "с" это столбецстрока, например A1 */
       val rOpt = Option(atts.getValue("r"))
 
-      log.info(s"${this.getClass}.startElement, $key, $qName, $rOpt")
+//      log.info(s"${this.getClass}.startElement, $key, $qName, $rOpt")
 
       /** первую строку (шапку) не сохраняем */
       if (notTheFirstRow) {
 
         captureOpt = (for {
-          _ <- Option(qName).filter(_ == "c")
+          _ <- Option(qName).filter(_ == "c") /** нужные ячейки <с r="A1"> */
           newCapture <- rOpt.filter(key => key.charAt(0) >= 'A' && key.charAt(0) <= 'Z')
         } yield {
+//          log.info(s"${this.getClass}.startElement -> notTheFirstRow -> newCapture == ${newCapture.replaceAll("\\d+", "")}")
 
-          log.info(s"${this.getClass}.startElement -> notTheFirstRow -> newCapture == ${newCapture.replaceAll("\\d+", "")}")
-
+          /** раз нашли начало нового элемента который хотим спарсить, очистим по это дело буфер
+           *  а так же отделим индекс столбца */
+          tagContentBuffer = new StringBuffer
           newCapture.replaceAll("\\d+", "")
         }).orElse(captureOpt)
-
-        //        println(s"captureOpt, $captureOpt")
 
       } else {
         /** если это row и уже не первый, то запоминаем */
@@ -60,60 +62,51 @@ object SberDealsXLSLParserHandler {
     }
 
     override def characters(ch: Array[Char], start: Int, length: Int) {
-      val strOpt = Option(new String(ch, start, length).trim()).filter(_.nonEmpty)
-
-      strOpt.tapEach { str =>
-        captureOpt.tapEach { capture =>
-          deal = capture match {
-            case "A" => deal.copy(contractNumber = Some(str))
-            case "B" => deal.copy(dealNumber = str.toLongOption)
-            case "C" => deal.copy(dealDate = str.toDoubleOption.map(DateUtil.getJavaDate(_, false)))
-            case "D" => deal.copy(settlementDate = str.toDoubleOption.map(DateUtil.getJavaDate(_, false)))
-            case "E" => deal.copy(instrumentCode = Some(str))
-            case "F" => deal.copy(instrumentType = Some(str))
-            case "G" => deal.copy(marketType = Some(str))
-            case "H" => deal.copy(transaction = Some(str))
-            case "I" => deal.copy(quantity = str.toLongOption)
-            case "J" => deal.copy(price = str.toDoubleOption)
-            case "K" => deal.copy(accumulatedCouponYield = str.toDoubleOption)
-            case "L" => deal.copy(volume = str.toDoubleOption)
-            case "M" => deal.copy(currency = Some(str))
-            case "N" => deal.copy(rate = str.toDoubleOption)
-            case "O" => deal.copy(systemCommission = str.toDoubleOption)
-            case "P" => deal.copy(bankCommission = str.toDoubleOption)
-            case "Q" => deal.copy(transactionAmount = str.toDoubleOption)
-            case "R" => deal.copy(dealType = str.toDoubleOption)
-            case _ => deal
-          }
-        }
+      /** сохранением текста занимаемся только если мы внутри нужной ячейки */
+      captureOpt.tapEach { _ =>
+        tagContentBuffer.append(new String(ch, start, length))
       }
     }
 
     override def endElement(uri: String, localName: String, qName: String): Unit = {
 
-      /**
-       * по идее characters должно пихать все в буфер и уже только в endElement мы можем перенести данные в параметр deal
-       * потому что characters может быть очень много */
+      def setUpaDeal(str: String, key: String, deal: Deal): Deal ={
+        key match {
+          case "A" => deal.copy(contractNumber = Some(str))
+          case "B" => deal.copy(dealNumber = str.toLongOption)
+          case "C" => deal.copy(dealDate = str.toDoubleOption.map(DateUtil.getJavaDate(_, false)))
+          case "D" => deal.copy(settlementDate = str.toDoubleOption.map(DateUtil.getJavaDate(_, false)))
+          case "E" => deal.copy(instrumentCode = Some(str))
+          case "F" => deal.copy(instrumentType = Some(str))
+          case "G" => deal.copy(marketType = Some(str))
+          case "H" => deal.copy(transaction = Some(str))
+          case "I" => deal.copy(quantity = str.toLongOption)
+          case "J" => deal.copy(price = str.toDoubleOption)
+          case "K" => deal.copy(accumulatedCouponYield = str.toDoubleOption)
+          case "L" => deal.copy(volume = str.toDoubleOption)
+          case "M" => deal.copy(currency = Some(str))
+          case "N" => deal.copy(rate = str.toDoubleOption)
+          case "O" => deal.copy(systemCommission = str.toDoubleOption)
+          case "P" => deal.copy(bankCommission = str.toDoubleOption)
+          case "Q" => deal.copy(transactionAmount = str.toDoubleOption)
+          case "R" => deal.copy(dealType = str.toDoubleOption)
+          case _ => deal
+        }
+      }
 
-      //      captureOpt = if (qName == "с") {
-      //        captureOpt.flatMap { _ =>
-      //
-      //          println(s"endElement $qName, $captureOpt -> None")
-      //
-      //          if (tagContentBuffer.length() > 0) {
-      //            list.append(deal)
-      //            deal = models.Deal()
-      //            println(s"endElement erasing deal -> $deal")
-      //          }
-      //
-      //          None
-      //        }
-      //      } else captureOpt
+      /** по окончании "c" я должен запихать накопленный буфер в поле объекта deal */
 
-      /** так что временно по окончании row я должен запихать deal в список и очистить его */
+      if (qName == "c" && tagContentBuffer.length > 0) {
+        captureOpt.tapEach { capture =>
+          deal = setUpaDeal(tagContentBuffer.toString, capture, deal)
+//          tagContentBuffer = new StringBuffer()
+        }
+      }
+
+      /** по окончании "row" я должен запихать deal в список и очистить его */
 
       if (qName == "row" && deal != Deal()) {
-        list = list.appended(deal)
+        list.addOne(deal)
         deal = Deal()
       }
 

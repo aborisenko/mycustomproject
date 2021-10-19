@@ -1,11 +1,10 @@
-import SAXParser.parse
 
-import java.io.{FileInputStream, FileNotFoundException, IOException}
+import java.io.{FileInputStream, FileNotFoundException, IOException, InputStream}
 import java.util.zip.ZipInputStream
 
-object zipOpener {
+object zipParser {
 
-  def open( fname: String ):Either[Throwable, Unit] = {
+  def parser( fname: String, f: (InputStream) => Unit ):Either[Throwable, Unit] = {
     val fin = new FileInputStream(fname)
     val zin = new ZipInputStream(fin)
 
@@ -15,7 +14,7 @@ object zipOpener {
       }).takeWhile( _ != null ).filter{ entry =>
         entry.getName.contains("worksheet") && entry.getName.endsWith("xml")
       }.tapEach { e =>
-        parse(zin)
+        f(zin)
       }.to(Iterable)
 
       Right()

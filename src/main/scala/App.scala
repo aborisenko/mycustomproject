@@ -1,6 +1,10 @@
-import zipOpener.open
+import SAXParser.Handlers.SberDealsXLSLParserHandler.Handler
+import models.Deal
+import zipParser.parser
+import SAXParser.parse
 
-import java.io.File
+import java.io.{File, FileOutputStream, FileWriter, InputStream, PrintWriter}
+import scala.collection.mutable
 
 object App {
 
@@ -20,6 +24,26 @@ object App {
   def main(args: Array[String]): Unit = {
     if( args.length != 1){ return }
 
-    open(convertToFileURL(args.mkString("")))
+    val list: mutable.ListBuffer[Deal] = mutable.ListBuffer.empty
+
+    def f(in: InputStream): Unit = {
+      val handler = new Handler(list)
+      SAXParser.parse(in, handler)
+    }
+
+    parser(convertToFileURL(args.mkString("")), f)
+
+    val fout:PrintWriter = new PrintWriter(new File("output1.txt"))
+
+    try {
+      list.foreach( d => {
+        println(d)
+        fout.println(d)
+      } )
+    }finally{
+      fout.flush()
+      fout.close()
+    }
+
   }
 }
