@@ -9,7 +9,9 @@ import SAXParser.log
 import java.io.{File, PrintWriter}
 import scala.collection.mutable
 
-object SberDealsXLSLParserHandler {
+object SberDealsXLSXParserHandler {
+
+  val dataXmlFileName = "xl/worksheets/sheet1.xml"
 
   class Handler( list: => mutable.ListBuffer[Deal] ) extends DefaultHandler {
 

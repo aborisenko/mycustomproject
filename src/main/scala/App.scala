@@ -1,49 +1,38 @@
-import SAXParser.Handlers.SberDealsXLSLParserHandler.Handler
+import Helper.convertToFileURL
+import SAXParser.Handlers.SberDealsXLSXParserHandler._
 import models.Deal
-import zipParser.parser
-import SAXParser.parse
+import xlsxOpener._
 
-import java.io.{File, FileOutputStream, FileWriter, InputStream, PrintWriter}
+import java.io.{File, PrintWriter}
+import scala.List
 import scala.collection.mutable
+import scala.util.{Failure, Success}
 
 object App {
 
-   def convertToFileURL(filename:String):String = {
-    var path = new File(filename).getAbsolutePath()
-    if (File.separatorChar != '/') {
-      path = path.replace(File.separatorChar, '/');
-    }
-
-//    if (!path.startsWith("/")) {
-//      path = "/" + path;
-//    }
-
-     path
-  }
 
   def main(args: Array[String]): Unit = {
     if( args.length != 1){ return }
 
-    val list: mutable.ListBuffer[Deal] = mutable.ListBuffer.empty
 
-    def f(in: InputStream): Unit = {
-      val handler = new Handler(list)
-      SAXParser.parse(in, handler)
-    }
+//    openAll( convertToFileURL( args.mkString("")), (str: String) => str.contains("worksheet") && str.endsWith("xml") ){
+//      xmlFile =>
+//        val handler = new Handler(list)
+//        SAXParser.parse( xmlFile, handler)
+//    }
 
-    parser(convertToFileURL(args.mkString("")), f)
+    xlsxOpener.echoNames(convertToFileURL( args(0))) map( _.foreach(println) )
 
-    val fout:PrintWriter = new PrintWriter(new File("output1.txt"))
-
-    try {
-      list.foreach( d => {
-        println(d)
-        fout.println(d)
-      } )
-    }finally{
-      fout.flush()
-      fout.close()
-    }
+    xlsxOpener.openOne( convertToFileURL( args.mkString("")), dataXmlFileName ){
+      xmlFile =>
+        val list: mutable.ListBuffer[Deal] = mutable.ListBuffer.empty
+        val handler = new Handler(list)
+        SAXParser.parse( xmlFile, handler)
+        list.toList
+    }.fold(
+      e => println(e.getMessage),
+      list => list.map(println)
+    )
 
   }
 }
