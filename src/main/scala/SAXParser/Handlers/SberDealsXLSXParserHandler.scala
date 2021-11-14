@@ -13,7 +13,11 @@ object SberDealsXLSXParserHandler {
 
   val dataXmlFileName = "xl/worksheets/sheet1.xml"
 
-  class Handler( list: => mutable.ListBuffer[Deal] ) extends DefaultHandler {
+  trait DealsHandler {
+    def addOne(deal: Deal)
+  }
+
+  class Handler( dealsHandler: DealsHandler ) extends DefaultHandler {
 
     var tagContentBuffer = new StringBuffer
 
@@ -23,7 +27,7 @@ object SberDealsXLSXParserHandler {
 
     @throws[SAXException]
     override def startDocument(): Unit = {
-      list.clear()
+//      dealsHandler.clear()
       captureOpt = None
       notTheFirstRow = false
       tagContentBuffer = new StringBuffer
@@ -108,7 +112,7 @@ object SberDealsXLSXParserHandler {
       /** по окончании "row" я должен запихать deal в список и очистить его */
 
       if (qName == "row" && deal != Deal()) {
-        list.addOne(deal)
+        dealsHandler.addOne(deal)
         deal = Deal()
       }
 

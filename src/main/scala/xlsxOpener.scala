@@ -5,11 +5,11 @@ import scala.util.{Try, Using}
 
 object xlsxOpener {
 
-  def echoNames( filename: String) = {
+  def getNames( filename: String)(f: String => Unit ): Try[Unit] = {
     Using(new ZipInputStream( new BufferedInputStream( new FileInputStream(filename)))) { zin =>
       Iterator.continually({
         zin.getNextEntry
-      }).takeWhile( _ != null).map(_.getName).to(List)
+      }).takeWhile( _ != null).map( zipEntry => f( zipEntry.getName) )
     }
   }
 
@@ -26,7 +26,7 @@ object xlsxOpener {
 
   //  @throws[FileNotFoundException]
   //  @throws[IOException]
-  def openOne[A]( fileName: String, nameToOpen: String)(f: (InputStream) => A ): Try[A] = {
+  def openOne( fileName: String, nameToOpen: String)(f: (InputStream) => Unit ): Try[Unit] = {
 
     Using( new ZipFile(fileName)) {
       zin =>
